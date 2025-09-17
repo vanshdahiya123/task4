@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CollabMeet - Video Conferencing Platform</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #d8d8d8 0%, #d8d8d8 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Auth Section */
+        .auth-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 50px auto;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-section h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4a5568;
+            font-size: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Main App */
+        .app-container {
+            display: none;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        .main-content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Video Grid */
+        .video-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+            padding: 20px;
+            background: #f7fafc;
+        }
+
+        .video-container {
+            position: relative;
+            background: #1a202c;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+
+        .video-element {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, #4a5568, #2d3748);
+        }
+
+        .video-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            padding: 10px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .control-btn.active {
+            background: #e53e3e;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-tabs {
+            display: flex;
+            background: #f7fafc;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4a5568;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Chat */
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 0.9rem;
+        }
+
+        .message-text {
+            margin-top: 5px;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        /* Participants */
+        .participant {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .participant-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .participant-info {
+            flex: 1;
+        }
+
+        .participant-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .participant-status {
+            font-size: 0.8rem;
+            color: #718096;
+        }
+
+        /* File Sharing */
+        .file-drop-zone {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            color: #718096;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .file-drop-zone:hover {
+            border-color: #667eea;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* Whiteboard */
+        .whiteboard-container {
+            height: 400px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .whiteboard-canvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .whiteboard-tools {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .tool-btn {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tool-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .color-picker {
+            width: 40px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Screen Share */
+        .screen-share-container {
+            position: relative;
+            background: #1a202c;
+            border-radius: 12px;
+            overflow: hidden;
+            min-height: 300px;
+        }
+
+        .screen-share-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: white;
+            font-size: 1.1rem;
+        }
+
+        /* Status Indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online { background: #48bb78; }
+        .status-away { background: #ed8936; }
+        .status-offline { background: #a0aec0; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto;
+            }
+            
+            .sidebar {
+                height: 300px;
+            }
+            
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Authentication Section -->
+        <div id="authSection" class="auth-section fade-in">
+            <h2>🎥 CollabMeet</h2>
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required placeholder="Enter your username">
+                </div>
+                <div class="form-group">
+                    <label for="roomId">Room ID</label>
+                    <input type="text" id="roomId" name="roomId" required placeholder="Enter room ID or create new">
+                </div>
+                <button type="submit" class="btn btn-primary">Join Meeting</button>
+            </form>
+        </div>
+
+        <!-- Main Application -->
+        <div id="appContainer" class="app-container">
+            <div class="main-content">
+                <div class="header">
+                    <h1>CollabMeet - Room: <span id="currentRoom"></span></h1>
+                    <div class="header-controls">
+                        <button id="shareScreenBtn" class="btn-small btn-secondary">📺 Share Screen</button>
+                        <button id="recordBtn" class="btn-small btn-secondary">⏺️ Record</button>
+                        <button id="leaveBtn" class="btn-small btn-secondary">🚪 Leave</button>
+                    </div>
+                </div>
+
+                <div class="video-grid" id="videoGrid">
+                    <div class="video-container">
+                        <video id="localVideo" class="video-element" autoplay muted playsinline></video>
+                        <div class="video-controls">
+                            <button id="muteBtn" class="control-btn">🎤</button>
+                            <button id="videoBtn" class="control-btn">📹</button>
+                        </div>
+                    </div>
+                    
+                    <div id="screenShareContainer" class="screen-share-container" style="display: none;">
+                        <video id="screenShareVideo" class="video-element" autoplay playsinline></video>
+                        <div class="screen-share-placeholder">
+                            Click "Share Screen" to start screen sharing
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="sidebar-tabs">
+                    <button class="tab-btn active" data-tab="chat">💬 Chat</button>
+                    <button class="tab-btn" data-tab="participants">👥 People</button>
+                    <button class="tab-btn" data-tab="files">📁 Files</button>
+                    <button class="tab-btn" data-tab="whiteboard">✏️ Board</button>
+                </div>
+
+                <div class="tab-content">
+                    <!-- Chat Panel -->
+                    <div id="chatPanel" class="tab-panel active">
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <div class="chat-input">
+                            <input type="text" id="messageInput" placeholder="Type a message...">
+                            <button id="sendBtn" class="btn btn-primary">Send</button>
+                        </div>
+                    </div>
+
+                    <!-- Participants Panel -->
+                    <div id="participantsPanel" class="tab-panel">
+                        <div id="participantsList"></div>
+                    </div>
+
+                    <!-- Files Panel -->
+                    <div id="filesPanel" class="tab-panel">
+                        <div class="file-drop-zone" id="fileDropZone">
+                            📁 Drop files here or click to upload
+                            <input type="file" id="fileInput" multiple style="display: none;">
+                        </div>
+                        <div id="filesList" class="file-list"></div>
+                    </div>
+
+                    <!-- Whiteboard Panel -->
+                    <div id="whiteboardPanel" class="tab-panel">
+                        <div class="whiteboard-tools">
+                            <button class="tool-btn active" data-tool="pen">✏️ Pen</button>
+                            <button class="tool-btn" data-tool="eraser">🧹 Eraser</button>
+                            <button class="tool-btn" data-tool="line">📏 Line</button>
+                            <button class="tool-btn" data-tool="rectangle">⬜ Rectangle</button>
+                            <input type="color" class="color-picker" id="colorPicker" value="#667eea">
+                            <button class="tool-btn" id="clearBoard">🗑️ Clear</button>
+                        </div>
+                        <div class="whiteboard-container">
+                            <canvas id="whiteboardCanvas" class="whiteboard-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let socket;
+        let localStream;
+        let screenShareStream;
+        let peerConnections = {};
+        let currentUser = null;
+        let currentRoom = null;
+        let isAudioMuted = false;
+        let isVideoOff = false;
+        let isScreenSharing = false;
+        let participants = new Map();
+        let files = [];
+        
+        // WebRTC configuration
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Whiteboard variables
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let currentColor = '#667eea';
+        let startX, startY;
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            // Initialize Socket.IO (simulated for demo)
+            initializeSocket();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Initialize whiteboard
+            initializeWhiteboard();
+            
+            console.log('CollabMeet initialized successfully');
+        }
+
+        function initializeSocket() {
+            // Simulated socket for demo purposes
+            socket = {
+                emit: function(event, data) {
+                    console.log('Socket emit:', event, data);
+                    // Simulate server responses
+                    setTimeout(() => {
+                        if (event === 'join-room') {
+                            this.trigger('user-joined', { userId: 'demo-user-2', username: 'Demo User' });
+                        }
+                    }, 1000);
+                },
+                on: function(event, callback) {
+                    console.log('Socket listening for:', event);
+                    this.listeners = this.listeners || {};
+                    this.listeners[event] = callback;
+                },
+                trigger: function(event, data) {
+                    if (this.listeners && this.listeners[event]) {
+                        this.listeners[event](data);
+                    }
+                }
+            };
+        }
+
+        function setupEventListeners() {
+            // Auth form
+            document.getElementById('authForm').addEventListener('submit', handleAuth);
+            
+            // Video controls
+            document.getElementById('muteBtn').addEventListener('click', toggleAudio);
+            document.getElementById('videoBtn').addEventListener('click', toggleVideo);
+            document.getElementById('shareScreenBtn').addEventListener('click', toggleScreenShare);
+            document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
+            
+            // Chat
+            document.getElementById('sendBtn').addEventListener('click', sendMessage);
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+            
+            // Tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+            
+            // File sharing
+            document.getElementById('fileDropZone').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+            
+            // Drag and drop
+            const dropZone = document.getElementById('fileDropZone');
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#667eea';
+            });
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#cbd5e0';
+            });
+            dropZone.addEventListener('drop', handleFileDrop);
+            
+            // Whiteboard tools
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (btn.dataset.tool) {
+                        selectTool(btn.dataset.tool);
+                    }
+                });
+            });
+            document.getElementById('clearBoard').addEventListener('click', clearWhiteboard);
+            document.getElementById('colorPicker').addEventListener('change', (e) => {
+                currentColor = e.target.value;
+            });
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const roomId = document.getElementById('roomId').value.trim();
+            
+            if (!username || !roomId) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            currentUser = { username, userId: generateUserId() };
+            currentRoom = roomId;
+            
+            // Initialize media
+            try {
+                await initializeMedia();
+                
+                // Join room
+                socket.emit('join-room', { roomId, username, userId: currentUser.userId });
+                
+                // Switch to main app
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'grid';
+                document.getElementById('currentRoom').textContent = roomId;
+                
+                // Add current user to participants
+                addParticipant(currentUser.userId, username, true);
+                
+                // Send welcome message
+                addChatMessage('System', 'Welcome to the meeting!', 'system');
+                
+            } catch (error) {
+                console.error('Error accessing media:', error);
+                alert('Could not access camera/microphone. Please check permissions.');
+            }
+        }
+
+        async function initializeMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1280, height: 720 },
+                    audio: { echoCancellation: true, noiseSuppression: true }
+                });
+                
+                document.getElementById('localVideo').srcObject = localStream;
+                console.log('Local media initialized');
+            } catch (error) {
+                console.error('Error getting user media:', error);
+                throw error;
+            }
+        }
+
+        function toggleAudio() {
+            const audioTracks = localStream.getAudioTracks();
+            const btn = document.getElementById('muteBtn');
+            
+            if (audioTracks.length > 0) {
+                isAudioMuted = !isAudioMuted;
+                audioTracks[0].enabled = !isAudioMuted;
+                btn.textContent = isAudioMuted ? '🔇' : '🎤';
+                btn.classList.toggle('active', isAudioMuted);
+                
+                socket.emit('audio-toggle', { roomId: currentRoom, muted: isAudioMuted });
+            }
+        }
+
+        function toggleVideo() {
+            const videoTracks = localStream.getVideoTracks();
+            const btn = document.getElementById('videoBtn');
+            
+            if (videoTracks.length > 0) {
+                isVideoOff = !isVideoOff;
+                videoTracks[0].enabled = !isVideoOff;
+                btn.textContent = isVideoOff ? '📷' : '📹';
+                btn.classList.toggle('active', isVideoOff);
+                
+                socket.emit('video-toggle', { roomId: currentRoom, videoOff: isVideoOff });
+            }
+        }
+
+        async function toggleScreenShare() {
+            const btn = document.getElementById('shareScreenBtn');
+            const container = document.getElementById('screenShareContainer');
+            const video = document.getElementById('screenShareVideo');
+            
+            if (!isScreenSharing) {
+                try {
+                    screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: { cursor: 'always' },
+                        audio: false
+                    });
+                    
+                    video.srcObject = screenShareStream;
+                    container.style.display = 'block';
+                    container.querySelector('.screen-share-placeholder').style.display = 'none';
+                    
+                    isScreenSharing = true;
+                    btn.textContent = '⏹️ Stop Share';
+                    
+                    // Handle screen share end
+                    screenShareStream.getVideoTracks()[0].onended = () => {
+                        stopScreenShare();
+                    };
+                    
+                    socket.emit('screen-share-start', { roomId: currentRoom });
+                    addChatMessage('System', `${currentUser.username} started screen sharing`, 'system');
+                    
+                } catch (error) {
+                    console.error('Error starting screen share:', error);
+                    alert('Could not start screen sharing');
+                }
+            } else {
+                stopScreenShare();
+            }
+        }
+
+        function stopScreenShare() {
+            if (screenShareStream) {
+                screenShareStream.getTracks().forEach(track => track.stop());
+                screenShareStream = null;
+            }
+            
+            const container = document.getElementById('screenShareContainer');
+            const video = document.getElementById('screenShareVideo');
+            const btn = document.getElementById('shareScreenBtn');
+            
+            video.srcObject = null;
+            container.style.display = 'none';
+            container.querySelector('.screen-share-placeholder').style.display = 'flex';
+            
+            isScreenSharing = false;
+            btn.textContent = '📺 Share Screen';
+            
+            socket.emit('screen-share-stop', { roomId: currentRoom });
+            addChatMessage('System', `${currentUser.username} stopped screen sharing`, 'system');
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                const messageData = {
+                    roomId: currentRoom,
+                    userId: currentUser.userId,
+                    username: currentUser.username,
+                    message: message,
+                    timestamp: new Date().toISOString()
+                };
+                
+                socket.emit('chat-message', messageData);
+                addChatMessage(currentUser.username, message, 'user');
+                input.value = '';
+            }
+        }
+
+        function addChatMessage(author, text, type = 'user') {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            
+            messageEl.innerHTML = `
+                <div class="message-author">${author}</div>
+                <div class="message-text">${escapeHtml(text)}</div>
+            `;
+            
+            messagesContainer.appendChild(messageEl);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName);
+            });
+            
+            // Update tab panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === `${tabName}Panel`);
+            });
+        }
+
+        function addParticipant(userId, username, isLocal = false) {
+            participants.set(userId, { username, isLocal, status: 'online' });
+            updateParticipantsList();
+        }
+
+        function removeParticipant(userId) {
+            participants.delete(userId);
+            updateParticipantsList();
+        }
+
+        function updateParticipantsList() {
+            const container = document.getElementById('participantsList');
+            container.innerHTML = '';
+            
+            participants.forEach((participant, userId) => {
+                const participantEl = document.createElement('div');
+                participantEl.className = 'participant';
+                
+                participantEl.innerHTML = `
+                    <div class="participant-avatar">
+                        ${participant.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="participant-info">
+                        <div class="participant-name">
+                            ${participant.username} ${participant.isLocal ? '(You)' : ''}
+                        </div>
+                        <div class="participant-status">
+                            <span class="status-indicator status-${participant.status}"></span>
+                            ${participant.status}
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(participantEl);
+            });
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            files.forEach(file => uploadFile(file));
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            const dropZone = document.getElementById('fileDropZone');
+            dropZone.style.borderColor = '#cbd5e0';
+            
+            const files = Array.from(e.dataTransfer.files);
+            files.forEach(file => uploadFile(file));
+        }
+
+        function uploadFile(file) {
+            // Simulate file upload
+            const fileData = {
+                id: generateFileId(),
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                uploadedBy: currentUser.username,
+                uploadedAt: new Date().toISOString()
+            };
+            
+            files.push(fileData);
+            updateFilesList();
+            
+            socket.emit('file-upload', { roomId: currentRoom, file: fileData });
+            addChatMessage('System', `${currentUser.username} shared a file: ${file.name}`, 'system');
+        }
+
+        function updateFilesList() {
+            const container = document.getElementById('filesList');
+            container.innerHTML = '';
+            
+            files.forEach(file => {
+                const fileEl = document.createElement('div');
+                fileEl.className = 'file-item';
+                
+                fileEl.innerHTML = `
+                    <div>
+                        <div style="font-weight: 600;">${file.name}</div>
+                        <div style="font-size: 0.8rem; color: #718096;">
+                            ${formatFileSize(file.size)} • ${file.uploadedBy}
+                        </div>
+                    </div>
+                    <button class="btn-small btn-secondary" onclick="downloadFile('${file.id}')">
+                        📥 Download
+                    </button>
+                `;
+                
+                container.appendChild(fileEl);
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function downloadFile(fileId) {
+            const file = files.find(f => f.id === fileId);
+            if (file) {
+                // Simulate file download
+                addChatMessage('System', `Downloading ${file.name}...`, 'system');
+                console.log('Downloading file:', file);
+            }
+        }
+
+        // Whiteboard functions
+        function initializeWhiteboard() {
+            canvas = document.getElementById('whiteboardCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Setup drawing events
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            // Touch events for mobile
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+            
+            // Set default styles
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Restore drawing styles after resize
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = currentColor;
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            
+            if (currentTool === 'pen') {
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+            }
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+            
+            ctx.strokeStyle = currentColor;
+            ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
+            
+            switch (currentTool) {
+                case 'pen':
+                    ctx.lineTo(currentX, currentY);
+                    ctx.stroke();
+                    break;
+                    
+                case 'eraser':
+                    ctx.lineWidth = 10;
+                    ctx.lineTo(currentX, currentY);
+                    ctx.stroke();
+                    ctx.lineWidth = 2;
+                    break;
+                    
+                case 'line':
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    redrawCanvas();
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(currentX, currentY);
+                    ctx.stroke();
+                    break;
+                    
+                case 'rectangle':
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    redrawCanvas();
+                    ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+                    break;
+            }
+            
+            // Emit drawing data to other participants
+            const drawingData = {
+                roomId: currentRoom,
+                tool: currentTool,
+                color: currentColor,
+                startX: startX,
+                startY: startY,
+                currentX: currentX,
+                currentY: currentY,
+                isDrawing: isDrawing
+            };
+            
+            socket.emit('whiteboard-draw', drawingData);
+        }
+
+        function stopDrawing() {
+            if (isDrawing) {
+                isDrawing = false;
+                
+                if (currentTool === 'line' || currentTool === 'rectangle') {
+                    // Save the final shape
+                    saveCanvasState();
+                }
+                
+                socket.emit('whiteboard-draw-end', { roomId: currentRoom });
+            }
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                            e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+
+        function selectTool(tool) {
+            currentTool = tool;
+            
+            // Update active tool button
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tool === tool);
+            });
+            
+            // Reset canvas cursor
+            canvas.style.cursor = tool === 'eraser' ? 'not-allowed' : 'crosshair';
+        }
+
+        function clearWhiteboard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            socket.emit('whiteboard-clear', { roomId: currentRoom });
+            addChatMessage('System', `${currentUser.username} cleared the whiteboard`, 'system');
+        }
+
+        function saveCanvasState() {
+            // In a real implementation, you would save the canvas state
+            // for undo/redo functionality
+            console.log('Canvas state saved');
+        }
+
+        function redrawCanvas() {
+            // In a real implementation, you would redraw all saved drawing data
+            // This is a simplified version
+            console.log('Redrawing canvas');
+        }
+
+        // Socket event handlers
+        function setupSocketHandlers() {
+            socket.on('user-joined', (data) => {
+                addParticipant(data.userId, data.username);
+                addChatMessage('System', `${data.username} joined the meeting`, 'system');
+            });
+            
+            socket.on('user-left', (data) => {
+                removeParticipant(data.userId);
+                addChatMessage('System', `${data.username} left the meeting`, 'system');
+            });
+            
+            socket.on('chat-message', (data) => {
+                if (data.userId !== currentUser.userId) {
+                    addChatMessage(data.username, data.message, 'other');
+                }
+            });
+            
+            socket.on('file-shared', (data) => {
+                files.push(data.file);
+                updateFilesList();
+                addChatMessage('System', `${data.file.uploadedBy} shared a file: ${data.file.name}`, 'system');
+            });
+            
+            socket.on('whiteboard-draw', (data) => {
+                // Receive and apply drawing from other participants
+                drawFromRemote(data);
+            });
+            
+            socket.on('whiteboard-clear', () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            });
+            
+            socket.on('screen-share-started', (data) => {
+                addChatMessage('System', `${data.username} started screen sharing`, 'system');
+            });
+            
+            socket.on('screen-share-stopped', (data) => {
+                addChatMessage('System', `${data.username} stopped screen sharing`, 'system');
+            });
+        }
+
+        function drawFromRemote(data) {
+            const prevColor = ctx.strokeStyle;
+            const prevComposite = ctx.globalCompositeOperation;
+            
+            ctx.strokeStyle = data.color;
+            ctx.globalCompositeOperation = data.tool === 'eraser' ? 'destination-out' : 'source-over';
+            
+            switch (data.tool) {
+                case 'pen':
+                case 'eraser':
+                    ctx.beginPath();
+                    ctx.moveTo(data.startX, data.startY);
+                    ctx.lineTo(data.currentX, data.currentY);
+                    ctx.stroke();
+                    break;
+                    
+                case 'line':
+                    ctx.beginPath();
+                    ctx.moveTo(data.startX, data.startY);
+                    ctx.lineTo(data.currentX, data.currentY);
+                    ctx.stroke();
+                    break;
+                    
+                case 'rectangle':
+                    ctx.strokeRect(data.startX, data.startY, 
+                                 data.currentX - data.startX, 
+                                 data.currentY - data.startY);
+                    break;
+            }
+            
+            // Restore previous styles
+            ctx.strokeStyle = prevColor;
+            ctx.globalCompositeOperation = prevComposite;
+        }
+
+        function leaveRoom() {
+            if (confirm('Are you sure you want to leave the meeting?')) {
+                // Stop all streams
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (screenShareStream) {
+                    screenShareStream.getTracks().forEach(track => track.stop());
+                }
+                
+                // Clean up peer connections
+                Object.values(peerConnections).forEach(pc => {
+                    pc.close();
+                });
+                
+                // Notify server
+                socket.emit('leave-room', { roomId: currentRoom, userId: currentUser.userId });
+                
+                // Reset application state
+                resetApplication();
+            }
+        }
+
+        function resetApplication() {
+            // Clear data
+            participants.clear();
+            files = [];
+            peerConnections = {};
+            currentUser = null;
+            currentRoom = null;
+            
+            // Reset UI
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('roomId').value = '';
+            document.getElementById('chatMessages').innerHTML = '';
+            document.getElementById('participantsList').innerHTML = '';
+            document.getElementById('filesList').innerHTML = '';
+            
+            // Clear whiteboard
+            if (canvas && ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // Reset controls
+            isAudioMuted = false;
+            isVideoOff = false;
+            isScreenSharing = false;
+            
+            console.log('Application reset');
+        }
+
+        // Utility functions
+        function generateUserId() {
+            return 'user_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function generateFileId() {
+            return 'file_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Recording functionality
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+
+        document.getElementById('recordBtn').addEventListener('click', toggleRecording);
+
+        function toggleRecording() {
+            const btn = document.getElementById('recordBtn');
+            
+            if (!isRecording) {
+                startRecording();
+                btn.textContent = '⏹️ Stop Recording';
+                btn.classList.add('active');
+                addChatMessage('System', `${currentUser.username} started recording`, 'system');
+            } else {
+                stopRecording();
+                btn.textContent = '⏺️ Record';
+                btn.classList.remove('active');
+                addChatMessage('System', `${currentUser.username} stopped recording`, 'system');
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                mediaRecorder = new MediaRecorder(stream);
+                recordedChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Create download link
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `meeting-recording-${new Date().toISOString().slice(0, 19)}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    URL.revokeObjectURL(url);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Could not start recording. Please try again.');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                // Stop the display stream
+                const stream = mediaRecorder.stream;
+                stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        // Initialize socket handlers after socket setup
+        setTimeout(() => {
+            setupSocketHandlers();
+        }, 100);
+
+        // Add some demo functionality
+        function addDemoParticipants() {
+            setTimeout(() => {
+                addParticipant('demo-user-1', 'Alice Johnson');
+                addChatMessage('Alice Johnson', 'Hello everyone! Great to be here.', 'other');
+            }, 2000);
+            
+            setTimeout(() => {
+                addParticipant('demo-user-2', 'Bob Smith');
+                addChatMessage('Bob Smith', 'Hi team! Ready for the presentation?', 'other');
+            }, 4000);
+        }
+
+        // Start demo after joining
+        setTimeout(() => {
+            if (currentUser) {
+                addDemoParticipants();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
